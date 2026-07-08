@@ -737,6 +737,53 @@ def quality_description(keyword: str) -> str:
     return text
 
 
+def eyebrow_label(keyword: str) -> str:
+    meta = quality_meta(keyword)
+    if meta["subject"] == "수학":
+        return "수학 학습 가이드"
+    if meta["subject"] == "영어":
+        return "영어 학습 가이드"
+    if meta["grade"] == "초등":
+        return "초등 학습 가이드"
+    if meta["grade"] == "중등":
+        return "중등 학습 가이드"
+    if meta["grade"] == "고등":
+        return "고등 학습 가이드"
+    return "지역 학습 가이드"
+
+
+def faq_answer(question: str, meta: dict[str, str], index: int) -> str:
+    area = meta["area"]
+    grade = meta["grade"]
+    subject = meta["subject"]
+    if "오답" in question or "틀린" in question:
+        return f"{area}에서 {grade} {subject} 학습을 점검할 때 오답은 정답만 다시 적기보다 왜 그렇게 생각했는지 남기는 편이 좋습니다. 계산 실수, 개념 혼동, 시간 부족처럼 원인을 나누면 다음 복습 순서가 더 분명해집니다."
+    if "시험" in question or "내신" in question or "중간고사" in question or "기말고사" in question:
+        return f"시험 준비는 범위가 나온 뒤에 몰아서 시작하기보다 평소 수업 단원과 과제 유형을 짧게 모아 두는 방식이 안정적입니다. {area} 생활권의 학교 일정에 맞춰 2주 전에는 복습 간격을 좁히는 흐름이 좋습니다."
+    if "방학" in question or "새 학기" in question or "학년" in question or "전환" in question:
+        return f"{grade} 단계에서는 학기 전환기에 이전 단원의 빈틈이 드러나는 경우가 많습니다. 방학이나 새 학기 초반에는 선행량을 늘리기보다 자주 막힌 단원, 과제 습관, 공부 시작 시간을 먼저 정리하는 편이 현실적입니다."
+    if "공부 시간" in question or "학습량" in question or "평일" in question or "주말" in question or "집중" in question:
+        return f"공부 시간은 길이보다 유지 가능한 시작 시간이 중요합니다. 평일에는 짧은 확인과 핵심 문제를 중심으로 두고, 주말에는 지난 내용을 묶어 보는 방식으로 나누면 {subject} 학습 부담을 줄일 수 있습니다."
+    if "학교" in question or "진도" in question or "수행평가" in question or "숙제" in question:
+        return f"학교 진도와 수행평가는 별도로 움직이지 않습니다. {area}에서 {subject} 공부 방향을 잡을 때는 교과서 단원, 프린트, 과제에서 반복되는 표현이나 유형을 먼저 묶어 보는 것이 도움이 됩니다."
+    if "부모" in question or "학부모" in question or "가정" in question:
+        return f"가정에서는 매일 많은 내용을 확인하기보다 학생이 설명할 수 있는 부분과 막히는 부분을 구분해 보는 정도가 적당합니다. 부모의 점검은 잔소리보다 주간 기록처럼 가볍게 이어질 때 효과가 오래 갑니다."
+    if "도서관" in question or "공부 공간" in question or "지역" in question or "통학" in question:
+        return f"{area}의 통학 동선과 공부 공간은 학습 지속성에 영향을 줍니다. 이동 후 바로 집중하기 어렵다면 집, 도서관, 조용한 공간 중 어느 곳에서 짧은 복습이 잘 되는지 먼저 살펴보는 것이 좋습니다."
+    if "기초" in question or "개념" in question or "공백" in question:
+        return f"기초가 약할수록 전 범위를 한꺼번에 다시 보기보다 최근 단원에서 반복되는 막힘을 기준으로 거슬러 올라가는 편이 좋습니다. {grade} {subject} 학습에서는 작은 개념 연결이 다음 문제 풀이의 출발점이 됩니다."
+    if "목표" in question or "진로" in question or "성장" in question:
+        return f"목표는 큰 성적 변화만으로 잡기보다 이번 주에 바꿀 학습 행동으로 나누면 실천하기 쉽습니다. 진로가 아직 분명하지 않아도 {subject}에서 필요한 기본 습관을 기록하면 성장 과정을 확인할 수 있습니다."
+    fallbacks = [
+        f"{area}의 학교생활과 {grade} {subject} 학습 흐름을 함께 보면 학생에게 필요한 기준을 더 현실적으로 잡을 수 있습니다. 한 번에 많은 항목을 바꾸기보다 가장 자주 막히는 장면 하나를 정해 반복 확인하는 방식이 좋습니다.",
+        f"{subject} 학습은 문제 수보다 이해한 내용을 다시 설명할 수 있는지가 중요합니다. {area} 생활권의 일정에 맞춰 짧은 복습과 오답 확인을 나누면 무리 없이 흐름을 이어가기 쉽습니다.",
+        f"{grade} 학생에게는 현재 수준을 정확히 보는 과정이 먼저입니다. 교재를 바꾸기 전 학교 진도, 과제 습관, 틀린 문제의 원인을 살펴보면 다음 학습 방향이 더 구체적으로 정리됩니다.",
+        f"학습 계획은 학생이 실제로 지킬 수 있어야 합니다. {area}에서 공부 시간을 정할 때는 통학 후 컨디션과 주말 복습 가능 시간을 함께 고려해 작게 시작하는 편이 안정적입니다.",
+        f"같은 {subject} 주제라도 학생마다 막히는 위치는 다릅니다. 설명을 들은 직후와 혼자 풀 때의 차이를 확인하면 필요한 보완 범위를 좁힐 수 있습니다.",
+    ]
+    return fallbacks[index % len(fallbacks)]
+
+
 def quality_body(keyword: str) -> str:
     meta = quality_meta(keyword)
     area = meta["area"]
@@ -781,8 +828,15 @@ def quality_body(keyword: str) -> str:
     paragraphs.append("<h2>체크리스트</h2>")
     paragraphs.append("<ul>" + "".join(f"<li>{escape(item)}</li>" for item in checklist) + "</ul>")
     paragraphs.append("<h2>자주 묻는 질문</h2>")
-    for question in faqs:
-        answer = f"{area}의 학교생활과 {grade} {subject} 학습 흐름을 함께 보며 학생이 실제로 지킬 수 있는 기준부터 정하는 것이 좋습니다. 한 번에 많은 항목을 바꾸기보다 현재 가장 자주 막히는 장면을 정하고, 그 부분을 짧게 반복해 확인하는 방식이 안정적입니다."
+    answer_suffixes = [
+        "이 기준을 먼저 확인하면 계획을 크게 바꾸지 않아도 다음 행동을 정하기 쉽습니다.",
+        "학생이 직접 설명해 보는 시간을 넣으면 이해 여부를 더 분명하게 볼 수 있습니다.",
+        "가정에서는 하루 단위보다 주간 단위로 변화를 살피는 편이 부담이 적습니다.",
+        "시험 전에는 새 문제보다 이미 흔들린 지점을 다시 보는 시간이 필요합니다.",
+        "짧게 반복할 수 있는 행동으로 바꾸면 학습 흐름이 오래 유지됩니다.",
+    ]
+    for index, question in enumerate(faqs):
+        answer = f"{faq_answer(question, meta, index)} {answer_suffixes[index % len(answer_suffixes)]}"
         paragraphs.append(f"<details><summary>{escape(question)}</summary><p>{escape(answer)}</p></details>")
     paragraphs.append(f"<p>{escape(conclusion)} 지역의 공부 환경, 학교 일정, 학생의 속도를 함께 살피면 준비 과정이 더 구체적이고 부담이 적어집니다.</p>")
     return ensure_quality_length(keyword, "\n".join(paragraphs))
@@ -1294,7 +1348,8 @@ def render_page(page, all_pages, regions):
     crumbs = breadcrumb_html(page)
     json_ld = structured_data(page, canonical)
     fixed_images = fixed_images_html()
-    return f'''<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{escape(page['description'])}"><title>{escape(page['title'])}</title><link rel="canonical" href="{canonical}"><meta property="og:type" content="website"><meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{escape(page['title'])}"><meta property="og:description" content="{escape(page['description'])}"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{selected_image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{selected_image}">{json_ld}<link rel="stylesheet" href="/static/css/style.css"></head><body class="detail-page"><header class="site-header"><div class="container nav-wrap"><a class="brand" href="/">{SITE_NAME}</a><nav class="site-nav">{nav}</nav></div></header><main class="container page-layout"><article class="page-card"><nav class="breadcrumb" aria-label="breadcrumb">{crumbs}</nav><p class="eyebrow">{escape(page['type'])}</p><h1>{escape(page['h1'])}</h1>{fixed_images}<p class="lead">{escape(page['description'])}</p><div class="prose">{content}</div><nav class="related-links"><h2>관련 페이지</h2>{related}</nav></article></main><footer class="site-footer"><div class="container footer-wrap"><p>{SITE_NAME}</p></div></footer></body></html>'''
+    eyebrow = eyebrow_label(page["keyword"])
+    return f'''<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{escape(page['description'])}"><title>{escape(page['title'])}</title><link rel="canonical" href="{canonical}"><meta property="og:type" content="website"><meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{escape(page['title'])}"><meta property="og:description" content="{escape(page['description'])}"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{selected_image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{selected_image}">{json_ld}<link rel="stylesheet" href="/static/css/style.css"></head><body class="detail-page"><header class="site-header"><div class="container nav-wrap"><a class="brand" href="/">{SITE_NAME}</a><nav class="site-nav">{nav}</nav></div></header><main class="container page-layout"><article class="page-card"><nav class="breadcrumb" aria-label="breadcrumb">{crumbs}</nav><p class="eyebrow">{escape(eyebrow)}</p><h1>{escape(page['h1'])}</h1>{fixed_images}<p class="lead">{escape(page['description'])}</p><div class="prose">{content}</div><nav class="related-links"><h2>관련 페이지</h2>{related}</nav></article></main><footer class="site-footer"><div class="container footer-wrap"><p>{SITE_NAME}</p></div></footer></body></html>'''
 
 
 def render_home(content_pages, region_pages, regions):
