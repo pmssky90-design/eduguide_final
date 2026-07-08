@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ description }}">
+  <title>{{ title }}</title>
+  <link rel="canonical" href="{{ canonical }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="에듀가이드">
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:url" content="{{ canonical }}">
+  {{ detail_image_meta }}
+  {{ json_ld }}
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="{{ body_class }}">
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="brand" href="/">에듀가이드</a>
+      <nav class="site-nav">{{ nav }}</nav>
+    </div>
+  </header>
+  {{ content }}
+  <footer class="site-footer">
+    <div class="container footer-wrap">
+      <p>에듀가이드</p>
+    </div>
+  </footer>
+</body>
+</html>
