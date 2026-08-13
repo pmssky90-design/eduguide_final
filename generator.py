@@ -30,6 +30,11 @@ THUMBNAIL_IMAGE_SRC_BASE = "/images/thumbnails"
 THUMBNAIL_IMAGE_NAMES = tuple(f"eduguide-thumb-{index:02}.png" for index in range(1, 14))
 THUMBNAIL_IMAGE_WIDTH = 1254
 THUMBNAIL_IMAGE_HEIGHT = 1254
+FIXED_IMAGE_DIR = ROOT / "images" / "thumbs" / "fixed"
+FIXED_IMAGE_SRC_BASE = "/images/thumbs/fixed"
+FIXED_IMAGE_NAMES = tuple(f"{index:03}.webp" for index in range(1, 7))
+FIXED_IMAGE_WIDTH = 1024
+FIXED_IMAGE_HEIGHT = 1536
 HERO_IMAGE_DIR = ROOT / "images" / "hero"
 HERO_IMAGE_NAME = "main-hero.webp"
 HERO_IMAGE_WIDTH = 1717
@@ -1261,14 +1266,16 @@ def thumbnail_image_src(name: str) -> str:
     return f"{THUMBNAIL_IMAGE_SRC_BASE}/{name}"
 
 
-def thumbnail_image_html(name: str, alt: str) -> str:
-    return (
-        '<div class="fixed-images">'
-        f'<img class="page-fixed-image" src="{thumbnail_image_src(name)}" alt="{escape(alt)}" '
-        f'width="{THUMBNAIL_IMAGE_WIDTH}" height="{THUMBNAIL_IMAGE_HEIGHT}" loading="eager" '
-        'decoding="async" fetchpriority="high">'
-        '</div>'
+def fixed_image_src(name: str) -> str:
+    return f"{FIXED_IMAGE_SRC_BASE}/{name}"
+
+
+def fixed_images_html() -> str:
+    images = "".join(
+        f'<img class="page-fixed-image" src="{fixed_image_src(name)}" alt="에듀가이드 학습 정보 이미지" width="{FIXED_IMAGE_WIDTH}" height="{FIXED_IMAGE_HEIGHT}" loading="lazy" decoding="async">'
+        for name in FIXED_IMAGE_NAMES
     )
+    return f'<div class="fixed-images">{images}</div>'
 
 
 def breadcrumb_items(slug: str, title: str) -> list[dict[str, Any]]:
@@ -1350,7 +1357,7 @@ def render_page(page, all_pages, regions):
     page = {**page, "image": selected_image}
     crumbs = breadcrumb_html(page)
     json_ld = structured_data(page, canonical)
-    fixed_images = thumbnail_image_html(selected_image_name, f"{page['h1']} 학습 정보")
+    fixed_images = fixed_images_html()
     eyebrow = eyebrow_label(page["keyword"])
     return f'''<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{escape(page['description'])}"><title>{escape(page['title'])}</title><link rel="canonical" href="{canonical}"><meta property="og:type" content="website"><meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{escape(page['title'])}"><meta property="og:description" content="{escape(page['description'])}"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{selected_image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{selected_image}">{json_ld}<link rel="stylesheet" href="/static/css/style.css"></head><body class="detail-page"><header class="site-header"><div class="container nav-wrap"><a class="brand" href="/">{SITE_NAME}</a><nav class="site-nav">{nav}</nav></div></header><main class="container page-layout"><article class="page-card"><nav class="breadcrumb" aria-label="breadcrumb">{crumbs}</nav><p class="eyebrow">{escape(eyebrow)}</p><h1>{escape(page['h1'])}</h1>{fixed_images}<p class="lead">{escape(page['description'])}</p><div class="prose">{content}</div><nav class="related-links"><h2>관련 페이지</h2>{related}</nav></article></main><footer class="site-footer"><div class="container footer-wrap"><p>{SITE_NAME}</p></div></footer></body></html>'''
 
@@ -1440,7 +1447,7 @@ def render_home(content_pages, region_pages, regions):
     home_image = thumbnail_image_url(home_image_name)
     home_page = {"slug": "", "h1": SITE_NAME, "title": title, "description": meta_description, "image": home_image}
     json_ld = '<meta name="naver-site-verification" content="49f9f7625441609fd58f4b5944d3c49cfbfe0156">' + structured_data(home_page, canonical)
-    return f'''<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{escape(meta_description)}"><title>{escape(title)}</title><link rel="canonical" href="{canonical}"><meta property="og:type" content="website"><meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{escape(title)}"><meta property="og:description" content="{escape(meta_description)}"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{home_image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{home_image}">{json_ld}<link rel="stylesheet" href="static/css/style.css"></head><body class="home-page"><header class="site-header"><div class="container nav-wrap"><a class="brand" href="/">{SITE_NAME}</a><nav class="site-nav">{nav}</nav></div></header><main class="container page-layout"><section class="page-card"><section class="home-hero"><div class="home-hero-media"><img class="home-hero-image" src="images/thumbnails/{home_image_name}" alt="에듀가이드 지역별 학습 정보" loading="eager" decoding="async" fetchpriority="high" width="{THUMBNAIL_IMAGE_WIDTH}" height="{THUMBNAIL_IMAGE_HEIGHT}"></div><div class="home-hero-copy"><p class="eyebrow">지역별 과외 학습 허브</p><h1>에듀가이드</h1><h2>지역별 과외 정보를 한눈에 살펴보는 교육 정보 허브</h2><p class="lead">{escape(description)}</p></div></section><section class="home-section"><h2>주요 지역 바로가기</h2><p class="home-section-intro">먼저 큰 지역 단위에서 출발하면 하위 구와 동 페이지로 자연스럽게 이동할 수 있습니다.</p><ul class="home-link-grid">{major_region_links}</ul></section><section class="home-section"><h2>과목별 바로가기</h2><p class="home-section-intro">수학과 영어처럼 자주 찾는 과목 페이지를 중심으로 지역별 학습 정보를 확인할 수 있습니다.</p><ul class="home-link-grid">{subject_links}</ul></section><section class="home-section"><h2>학년별 바로가기</h2><p class="home-section-intro">초등, 중등, 고등 단계별로 필요한 학습 관점이 다르므로 학년 페이지에서 흐름을 나누어 볼 수 있습니다.</p><ul class="home-link-grid">{grade_links}</ul></section><section class="home-section"><h2>지역별 세부 탐색</h2><p class="home-section-intro">시 단위 페이지와 주요 하위 지역을 묶어 전체 구조를 빠르게 살펴볼 수 있도록 정리했습니다.</p>{detail_html}</section><section class="home-section home-copy"><h2>학습 안내</h2><p>지역별 학습 환경은 학교 밀집도, 통학 동선, 생활권에 따라 다르게 나타납니다. 같은 시 안에서도 구나 동에 따라 자주 찾는 과목과 학년 흐름이 달라질 수 있으므로, 큰 지역 페이지에서 출발해 세부 지역 페이지로 이동하며 정보를 좁혀 보는 방식이 유용합니다.</p><p>초등 학습은 기본 개념과 학습 습관을 만드는 데 초점이 있고, 중등 학습은 과목별 단원 이해와 내신 대비 흐름이 중요합니다. 고등 학습은 학교 시험, 모의고사, 진로 선택과 연결되기 때문에 학년 페이지를 함께 살펴보면 준비 방향을 더 분명하게 잡을 수 있습니다.</p><p>수학은 개념 이해, 문제 풀이 과정, 오답 정리가 이어질 때 학습 흐름이 안정됩니다. 영어는 어휘, 문법, 독해, 듣기처럼 영역이 나뉘기 때문에 현재 부족한 부분을 확인하고 학년별 난이도에 맞게 준비하는 것이 좋습니다.</p><p>에듀가이드의 지역 페이지는 시·구·동, 과목, 학년 조합으로 연결되어 있습니다. 먼저 거주지나 학교 생활권에 가까운 지역을 고른 뒤, 수학·영어 또는 초등·중등·고등 페이지로 이동하면 내신 준비와 공부 습관에 필요한 정보를 순서대로 확인할 수 있습니다.</p></section><section class="home-section"><h2>주요 페이지 바로가기</h2><p class="home-section-intro">자주 확인할 만한 대표 페이지를 적게 모아 메인에서 바로 이동할 수 있게 했습니다.</p><ul class="home-link-grid">{guide_links}</ul></section></section></main><footer class="site-footer"><div class="container footer-wrap"><p>{SITE_NAME}</p></div></footer></body></html>'''
+    return f'''<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{escape(meta_description)}"><title>{escape(title)}</title><link rel="canonical" href="{canonical}"><meta property="og:type" content="website"><meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{escape(title)}"><meta property="og:description" content="{escape(meta_description)}"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{home_image}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{home_image}">{json_ld}<link rel="stylesheet" href="static/css/style.css"></head><body class="home-page"><header class="site-header"><div class="container nav-wrap"><a class="brand" href="/">{SITE_NAME}</a><nav class="site-nav">{nav}</nav></div></header><main class="container page-layout"><section class="page-card"><section class="home-hero"><div class="home-hero-media"><img class="home-hero-image" src="images/hero/{HERO_IMAGE_NAME}" alt="에듀가이드 지역별 학습 정보" loading="eager" decoding="async" fetchpriority="high" width="{HERO_IMAGE_WIDTH}" height="{HERO_IMAGE_HEIGHT}"></div><div class="home-hero-copy"><p class="eyebrow">지역별 과외 학습 허브</p><h1>에듀가이드</h1><h2>지역별 과외 정보를 한눈에 살펴보는 교육 정보 허브</h2><p class="lead">{escape(description)}</p></div></section><section class="home-section"><h2>주요 지역 바로가기</h2><p class="home-section-intro">먼저 큰 지역 단위에서 출발하면 하위 구와 동 페이지로 자연스럽게 이동할 수 있습니다.</p><ul class="home-link-grid">{major_region_links}</ul></section><section class="home-section"><h2>과목별 바로가기</h2><p class="home-section-intro">수학과 영어처럼 자주 찾는 과목 페이지를 중심으로 지역별 학습 정보를 확인할 수 있습니다.</p><ul class="home-link-grid">{subject_links}</ul></section><section class="home-section"><h2>학년별 바로가기</h2><p class="home-section-intro">초등, 중등, 고등 단계별로 필요한 학습 관점이 다르므로 학년 페이지에서 흐름을 나누어 볼 수 있습니다.</p><ul class="home-link-grid">{grade_links}</ul></section><section class="home-section"><h2>지역별 세부 탐색</h2><p class="home-section-intro">시 단위 페이지와 주요 하위 지역을 묶어 전체 구조를 빠르게 살펴볼 수 있도록 정리했습니다.</p>{detail_html}</section><section class="home-section home-copy"><h2>학습 안내</h2><p>지역별 학습 환경은 학교 밀집도, 통학 동선, 생활권에 따라 다르게 나타납니다. 같은 시 안에서도 구나 동에 따라 자주 찾는 과목과 학년 흐름이 달라질 수 있으므로, 큰 지역 페이지에서 출발해 세부 지역 페이지로 이동하며 정보를 좁혀 보는 방식이 유용합니다.</p><p>초등 학습은 기본 개념과 학습 습관을 만드는 데 초점이 있고, 중등 학습은 과목별 단원 이해와 내신 대비 흐름이 중요합니다. 고등 학습은 학교 시험, 모의고사, 진로 선택과 연결되기 때문에 학년 페이지를 함께 살펴보면 준비 방향을 더 분명하게 잡을 수 있습니다.</p><p>수학은 개념 이해, 문제 풀이 과정, 오답 정리가 이어질 때 학습 흐름이 안정됩니다. 영어는 어휘, 문법, 독해, 듣기처럼 영역이 나뉘기 때문에 현재 부족한 부분을 확인하고 학년별 난이도에 맞게 준비하는 것이 좋습니다.</p><p>에듀가이드의 지역 페이지는 시·구·동, 과목, 학년 조합으로 연결되어 있습니다. 먼저 거주지나 학교 생활권에 가까운 지역을 고른 뒤, 수학·영어 또는 초등·중등·고등 페이지로 이동하면 내신 준비와 공부 습관에 필요한 정보를 순서대로 확인할 수 있습니다.</p></section><section class="home-section"><h2>주요 페이지 바로가기</h2><p class="home-section-intro">자주 확인할 만한 대표 페이지를 적게 모아 메인에서 바로 이동할 수 있게 했습니다.</p><ul class="home-link-grid">{guide_links}</ul></section></section></main><footer class="site-footer"><div class="container footer-wrap"><p>{SITE_NAME}</p></div></footer></body></html>'''
 
 
 def render_404(regions):
@@ -1463,6 +1470,10 @@ def write_json(path: Path, payload: Any):
 
 
 def ensure_site_images() -> None:
+    for name in FIXED_IMAGE_NAMES:
+        image_path = FIXED_IMAGE_DIR / name
+        if not image_path.exists():
+            raise SystemExit(f"STOP: missing image: {image_path}")
     for name in THUMBNAIL_IMAGE_NAMES:
         image_path = THUMBNAIL_IMAGE_DIR / name
         if not image_path.exists():
@@ -1494,6 +1505,7 @@ def main():
     region_pages = build_region_pages(regions, content_pages)
     all_pages = content_pages + region_pages
     shutil.copytree(STATIC_DIR, OUTPUT_DIR / "static", dirs_exist_ok=True)
+    shutil.copytree(FIXED_IMAGE_DIR, OUTPUT_DIR / "images" / "thumbs" / "fixed", dirs_exist_ok=True)
     shutil.copytree(THUMBNAIL_IMAGE_DIR, OUTPUT_DIR / "images" / "thumbnails", dirs_exist_ok=True)
     shutil.copytree(HERO_IMAGE_DIR, OUTPUT_DIR / "images" / "hero", dirs_exist_ok=True)
     write_file(OUTPUT_DIR / "index.html", render_home(content_pages, region_pages, regions))
