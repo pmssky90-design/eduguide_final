@@ -20,6 +20,8 @@ EXPECTED_BASE_PAGES = 1620
 EXPECTED_BASE_URLS = 1621
 REGION_NAV_START = "<!-- REGION_HIERARCHY_NAV_START -->"
 REGION_NAV_END = "<!-- REGION_HIERARCHY_NAV_END -->"
+HOME_SCHOOL_NAV_START = "<!-- HOME_SCHOOL_NAV_START -->"
+HOME_SCHOOL_NAV_END = "<!-- HOME_SCHOOL_NAV_END -->"
 NAESIN_TYPE = "\ub0b4\uc2e0\uacfc\uc678"
 FALLBACK_PARENT_MAP = {
     "\uc6b8\uc0b0\uc120\uc554\ub3d9\ub0b4\uc2e0\uacfc\uc678": "\uc6b8\uc0b0\ub0a8\uad6c\uacfc\uc678",
@@ -317,6 +319,80 @@ def apply_mobile_cta(html: str, cta_html: str) -> str:
     return html.replace("</body>", f"{cta_html}</body>", 1)
 
 
+def home_school_navigation(school_payload, region_meta, school_slugs):
+    mappings = school_payload.get("schools", [])
+    city_names = {meta["city"] for meta in region_meta.values()}
+    district_to_city = {}
+    for meta in region_meta.values():
+        district = meta["district"]
+        city = meta["city"]
+        if district in district_to_city and district_to_city[district] != city:
+            raise SystemExit(f"STOP: ambiguous school district: {district}")
+        district_to_city[district] = city
+
+    grouped = {}
+    seen_hubs = set()
+    for mapping in mappings:
+        hub_slug = mapping["hub_slug"].strip("/")
+        connected = mapping["connected_region_name"]
+        if hub_slug not in school_slugs or hub_slug in seen_hubs:
+            raise SystemExit(f"STOP: invalid or duplicate homepage school hub: {hub_slug}")
+        seen_hubs.add(hub_slug)
+        if connected in region_meta:
+            city = region_meta[connected]["city"]
+            district = region_meta[connected]["district"]
+        elif connected in district_to_city:
+            city = district_to_city[connected]
+            district = connected
+        elif connected in city_names:
+            city = connected
+            district = f"{city} 전체"
+        else:
+            raise SystemExit(f"STOP: school homepage hierarchy missing: {connected}")
+        grouped.setdefault(city, {}).setdefault(district, []).append(
+            (mapping["school_short_name"], f"/{hub_slug}/")
+        )
+
+    if len(seen_hubs) != len(mappings):
+        raise SystemExit("STOP: homepage school hub count mismatch")
+    city_blocks = []
+    for city in sorted(grouped):
+        district_blocks = []
+        city_count = sum(len(items) for items in grouped[city].values())
+        for district in sorted(grouped[city]):
+            items = sorted(grouped[city][district])
+            links = "".join(
+                f'<li><a href="{escape(href)}">{escape(name)}</a></li>'
+                for name, href in items
+            )
+            district_blocks.append(
+                f'<section class="home-school-group"><h3>{escape(district)}</h3>'
+                f'<ul class="home-school-grid">{links}</ul></section>'
+            )
+        city_blocks.append(
+            f'<details class="home-school-city"><summary><span>{escape(city)}</span>'
+            f'<span class="home-school-count">{city_count}개 학교</span></summary>'
+            f'<div class="home-school-districts">{"".join(district_blocks)}</div></details>'
+        )
+    return (
+        HOME_SCHOOL_NAV_START
+        + '<section class="home-section home-school-section" id="school-navigation">'
+        + '<h2>지역별 학교 찾기</h2>'
+        + '<p class="home-section-intro">지역을 선택하면 연결된 고등학교 과외 페이지를 확인할 수 있습니다.</p>'
+        + f'<div class="home-school-cities">{"".join(city_blocks)}</div></section>'
+        + HOME_SCHOOL_NAV_END
+    )
+
+
+def add_home_school_navigation(html, block):
+    if HOME_SCHOOL_NAV_START in html and HOME_SCHOOL_NAV_END in html:
+        html = html[:html.index(HOME_SCHOOL_NAV_START)] + html[html.index(HOME_SCHOOL_NAV_END) + len(HOME_SCHOOL_NAV_END):]
+    anchor = '<section class="home-section home-copy">'
+    if html.count(anchor) != 1:
+        raise SystemExit("STOP: homepage school navigation anchor not found")
+    return html.replace(anchor, block + anchor, 1)
+
+
 def build(output_root: Path):
     generator = load_generator()
     base_pages, expansion, source_pages, school_payload, school_sources = load_inputs()
@@ -406,6 +482,13 @@ def build(output_root: Path):
     if write_if_changed(output_root / "sitemap.xml", sitemap):
         changed_files += 1
     if write_if_changed(output_root / "static" / "css" / "style.css", generator.STYLE_CSS):
+        changed_files += 1
+    home_path = output_root / "index.html"
+    home_updated = add_home_school_navigation(
+        home_path.read_text(encoding="utf-8"),
+        home_school_navigation(school_payload, region_meta, school_slugs),
+    )
+    if write_if_changed(home_path, home_updated):
         changed_files += 1
     for html_path in output_root.rglob("*.html"):
         updated = apply_mobile_cta(html_path.read_text(encoding="utf-8"), generator.MOBILE_CTA_HTML)
