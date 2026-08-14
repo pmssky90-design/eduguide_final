@@ -309,6 +309,14 @@ def write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
+def apply_mobile_cta(html: str, cta_html: str) -> str:
+    if 'class="mobile-cta"' in html:
+        return html
+    if "</body>" not in html:
+        raise SystemExit("STOP: mobile CTA insertion anchor not found")
+    return html.replace("</body>", f"{cta_html}</body>", 1)
+
+
 def build(output_root: Path):
     generator = load_generator()
     base_pages, expansion, source_pages, school_payload, school_sources = load_inputs()
@@ -397,6 +405,12 @@ def build(output_root: Path):
     sitemap += "\n</urlset>\n"
     if write_if_changed(output_root / "sitemap.xml", sitemap):
         changed_files += 1
+    if write_if_changed(output_root / "static" / "css" / "style.css", generator.STYLE_CSS):
+        changed_files += 1
+    for html_path in output_root.rglob("*.html"):
+        updated = apply_mobile_cta(html_path.read_text(encoding="utf-8"), generator.MOBILE_CTA_HTML)
+        if write_if_changed(html_path, updated):
+            changed_files += 1
     print(json.dumps({
         "base_pages": len(base_pages), "regional_pages": len(regional_pages),
         "school_pages": len(school_pages),
