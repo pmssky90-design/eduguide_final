@@ -28,6 +28,11 @@ FALLBACK_PARENT_MAP = {
     "\uc6b8\uc0b0\uc1a1\uc815\ub3d9\ub0b4\uc2e0\uacfc\uc678": "\uc6b8\uc0b0\ubd81\uad6c\uacfc\uc678",
     "\uc804\uc8fc\ud6a8\ucc9c\uc9c0\uad6c\ub0b4\uc2e0\uacfc\uc678": "\uc644\uc0b0\uad6c\uacfc\uc678",
 }
+FORBIDDEN_REGIONAL_HUBS = {
+    "\uc6b8\uc0b0\uc120\uc554\ub3d9\uacfc\uc678",
+    "\uc6b8\uc0b0\uc1a1\uc815\ub3d9\uacfc\uc678",
+    "\uc804\uc8fc\ud6a8\ucc9c\uc9c0\uad6c\uacfc\uc678",
+}
 BODY_SHEETS = [
     "고1과외", "고2과외", "고3과외",
     "고1영어과외", "고2영어과외", "고3영어과외",
@@ -481,6 +486,22 @@ def build(output_root: Path):
     sitemap += "\n</urlset>\n"
     if write_if_changed(output_root / "sitemap.xml", sitemap):
         changed_files += 1
+    new_urls = regional_urls + school_urls
+    if len(set(new_urls)) != len(new_urls):
+        raise SystemExit("STOP: duplicate URL in new-pages sitemap")
+    if set(base_urls) & set(new_urls):
+        raise SystemExit("STOP: baseline URL included in new-pages sitemap")
+    if any(not url.startswith(BASE_URL + "/") for url in new_urls):
+        raise SystemExit("STOP: wrong domain in new-pages sitemap")
+    forbidden_urls = {f"{BASE_URL}/{slug}/" for slug in FORBIDDEN_REGIONAL_HUBS}
+    if forbidden_urls & set(new_urls):
+        raise SystemExit("STOP: forbidden regional hub in new-pages sitemap")
+    new_sitemap = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    new_sitemap += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+    new_sitemap += "\n".join(f"  <url><loc>{escape(url)}</loc></url>" for url in new_urls)
+    new_sitemap += "\n</urlset>\n"
+    if write_if_changed(output_root / "sitemap-new-pages.xml", new_sitemap):
+        changed_files += 1
     if write_if_changed(output_root / "static" / "css" / "style.css", generator.STYLE_CSS):
         changed_files += 1
     home_path = output_root / "index.html"
@@ -498,6 +519,7 @@ def build(output_root: Path):
         "base_pages": len(base_pages), "regional_pages": len(regional_pages),
         "school_pages": len(school_pages),
         "sitemap_urls": len(all_urls), "changed_files": changed_files,
+        "new_sitemap_urls": len(new_urls),
         "regional_relations": len(regional_relations),
         "output_root": str(output_root),
     }, ensure_ascii=False))
