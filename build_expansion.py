@@ -18,6 +18,14 @@ BASE_OUTPUT = ROOT / "output"
 BASE_URL = "https://www.eduguide.kr"
 EXPECTED_BASE_PAGES = 1620
 EXPECTED_BASE_URLS = 1621
+REGION_NAV_START = "<!-- REGION_HIERARCHY_NAV_START -->"
+REGION_NAV_END = "<!-- REGION_HIERARCHY_NAV_END -->"
+NAESIN_TYPE = "\ub0b4\uc2e0\uacfc\uc678"
+FALLBACK_PARENT_MAP = {
+    "\uc6b8\uc0b0\uc120\uc554\ub3d9\ub0b4\uc2e0\uacfc\uc678": "\uc6b8\uc0b0\ub0a8\uad6c\uacfc\uc678",
+    "\uc6b8\uc0b0\uc1a1\uc815\ub3d9\ub0b4\uc2e0\uacfc\uc678": "\uc6b8\uc0b0\ubd81\uad6c\uacfc\uc678",
+    "\uc804\uc8fc\ud6a8\ucc9c\uc9c0\uad6c\ub0b4\uc2e0\uacfc\uc678": "\uc644\uc0b0\uad6c\uacfc\uc678",
+}
 BODY_SHEETS = [
     "고1과외", "고2과외", "고3과외",
     "고1영어과외", "고2영어과외", "고3영어과외",
@@ -165,6 +173,116 @@ def add_school_links(html, links):
     return html.replace(anchor, anchor + block, 1)
 
 
+def regional_relation_graph(base_pages, expansion_pages, regional_slugs, fallback_items):
+    """Build required regional parent-child pairs from URLs that actually exist."""
+    pairs = set()
+
+    def add(parent, child):
+        if parent in regional_slugs and child in regional_slugs and parent != child:
+            pairs.add(tuple(sorted((parent, child))))
+
+    base_slugs = {page["slug"].strip("/") for page in base_pages}
+    hub_suffix = "\uacfc\uc678"
+    direct_suffixes = (
+        "\uc218\ud559\uacfc\uc678", "\uc601\uc5b4\uacfc\uc678", "\ucd08\ub4f1\uacfc\uc678",
+        "\uc911\ub4f1\uacfc\uc678", "\uace0\ub4f1\uacfc\uc678",
+    )
+    level_children = {
+        "\ucd08\ub4f1\uacfc\uc678": ("\ucd08\ub4f1\uc218\ud559\uacfc\uc678", "\ucd08\ub4f1\uc601\uc5b4\uacfc\uc678"),
+        "\uc911\ub4f1\uacfc\uc678": ("\uc911\ub4f1\uc218\ud559\uacfc\uc678", "\uc911\ub4f1\uc601\uc5b4\uacfc\uc678"),
+        "\uace0\ub4f1\uacfc\uc678": ("\uace0\ub4f1\uc218\ud559\uacfc\uc678", "\uace0\ub4f1\uc601\uc5b4\uacfc\uc678"),
+    }
+    hubs = []
+    for slug in base_slugs:
+        if not slug.endswith(hub_suffix):
+            continue
+        region = slug[:-len(hub_suffix)]
+        if all(f"{region}{suffix}" in base_slugs for suffix in direct_suffixes):
+            hubs.append((region, slug))
+    for region, hub in hubs:
+        for suffix in direct_suffixes:
+            add(hub, f"{region}{suffix}")
+        for parent_suffix, child_suffixes in level_children.items():
+            for child_suffix in child_suffixes:
+                add(f"{region}{parent_suffix}", f"{region}{child_suffix}")
+
+    expansion_by_region = {}
+    for page in expansion_pages:
+        expansion_by_region.setdefault(page["region"], set()).add(page["slug"].strip("/"))
+    for region in expansion_by_region:
+        hub = f"{region}{hub_suffix}"
+        for grade in ("\uace01", "\uace02", "\uace03"):
+            grade_parent = f"{region}{grade}{hub_suffix}"
+            add(hub, grade_parent)
+            add(grade_parent, f"{region}{grade}\uc218\ud559{hub_suffix}")
+            add(grade_parent, f"{region}{grade}\uc601\uc5b4{hub_suffix}")
+
+    fallback_data = {
+        item["slug"].strip("/"): item["parent_slug"].strip("/")
+        for item in fallback_items
+    }
+    if fallback_data != FALLBACK_PARENT_MAP:
+        raise SystemExit("STOP: fallback parent map does not match the audited hierarchy")
+    for page in expansion_pages:
+        if page["page_type"] != NAESIN_TYPE:
+            continue
+        child = page["slug"].strip("/")
+        exact_parent = f"{page['region']}{hub_suffix}"
+        parent = exact_parent if exact_parent in regional_slugs else fallback_data.get(child, "")
+        if not parent or parent not in regional_slugs:
+            raise SystemExit(f"STOP: missing naesin parent target: {child} -> {parent}")
+        add(parent, child)
+    return pairs
+
+
+def strip_region_navigation(html):
+    pattern = re.escape(REGION_NAV_START) + r".*?" + re.escape(REGION_NAV_END)
+    return re.sub(pattern, "", html, flags=re.S)
+
+
+def related_nav_hrefs(html):
+    clean = strip_region_navigation(html)
+    match = re.search(r'<nav class="related-links">.*?</nav>', clean, re.S)
+    if not match:
+        raise SystemExit("STOP: related-links navigation not found")
+    return set(re.findall(r'href="/([^"/]+)/"', match.group()))
+
+
+def add_region_navigation(html, links):
+    clean = strip_region_navigation(html)
+    existing = related_nav_hrefs(clean)
+    missing = [(label, href) for label, href in links if href.strip("/") not in existing]
+    if not missing:
+        return clean
+    block = REGION_NAV_START
+    block += '<section class="related-section region-hierarchy-links"><h3>\uc9c0\uc5ed \uacc4\uce35 \ud0d0\uc0c9</h3><ul>'
+    block += "".join(f'<li><a href="{escape(href)}">{escape(label)}</a></li>' for label, href in missing)
+    block += "</ul></section>" + REGION_NAV_END
+    pattern = r'(<nav class="related-links"><h2>.*?</h2>)'
+    updated, count = re.subn(pattern, lambda match: match.group(1) + block, clean, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit("STOP: related-links insertion anchor not found")
+    return updated
+
+
+def apply_regional_navigation(output_root, base_pages, expansion_pages, regional_slugs, fallback_items):
+    pairs = regional_relation_graph(base_pages, expansion_pages, regional_slugs, fallback_items)
+    neighbors = {slug: set() for slug in regional_slugs}
+    for left, right in pairs:
+        neighbors[left].add(right)
+        neighbors[right].add(left)
+    changed = 0
+    for slug, targets in neighbors.items():
+        path = output_root / slug / "index.html"
+        if not path.is_file():
+            raise SystemExit(f"STOP: regional relation target HTML missing: {slug}")
+        links = [(target, f"/{target}/") for target in sorted(targets)]
+        updated = add_region_navigation(path.read_text(encoding="utf-8"), links)
+        if write_if_changed(path, updated):
+            changed += 1
+    return pairs, changed
+
+
 def prepare_output(output_root: Path):
     output_root = output_root.resolve()
     if output_root != BASE_OUTPUT.resolve():
@@ -260,6 +378,13 @@ def build(output_root: Path):
         if write_if_changed(path, updated):
             changed_files += 1
 
+    regional_slugs = base_slugs | new_slugs
+    regional_relations, regional_changed = apply_regional_navigation(
+        output_root, base_pages, source_pages, regional_slugs,
+        expansion.get("fallback_parent_map", []),
+    )
+    changed_files += regional_changed
+
     base_urls = [BASE_URL + "/"] + [f"{BASE_URL}/{page['slug'].strip('/')}/" for page in base_pages]
     regional_urls = [f"{BASE_URL}/{page['slug'].strip('/')}/" for page in regional_pages]
     school_urls = [f"{BASE_URL}/{page['slug'].strip('/')}/" for page in school_pages]
@@ -276,6 +401,7 @@ def build(output_root: Path):
         "base_pages": len(base_pages), "regional_pages": len(regional_pages),
         "school_pages": len(school_pages),
         "sitemap_urls": len(all_urls), "changed_files": changed_files,
+        "regional_relations": len(regional_relations),
         "output_root": str(output_root),
     }, ensure_ascii=False))
 
