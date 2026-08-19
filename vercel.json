@@ -1,5 +1,5 @@
 {
-  "buildCommand": "python3 build_expansion.py",
+  "buildCommand": "python3 scripts/build_with_search_thumbnails.py",
   "outputDirectory": "output",
   "framework": null
 }
